@@ -29,12 +29,15 @@ symbol, start, end = user_input_features()
 
 @st.cache  # 👈 Added this
 def build_bbands_img(data, symbol, file_name="sample.png"):
-    display_bbands(data, symbol, 15, 2, export=file_name)
     stream = os.popen('cd ~ && pwd')
     root_dir = stream.read()
-    # /home/codespace/OpenBBUserData/exports/temp.png
-    # find root directory/OpenBBUserData/exports
     sample_dir = root_dir.strip()
+    # remove /home/codespace/OpenBBUserData/exports/bbands.png already
+    temp_image = os.path.join(sample_dir, "OpenBBUserData", "exports", file_name)
+    # if exists erase
+    if os.path.exists(temp_image):
+        os.remove(temp_image)
+    display_bbands(data, symbol, 15, 2, export=file_name)
     # root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     temp_image = os.path.join(sample_dir, "OpenBBUserData", "exports", file_name)
     # image = Image.open(temp_image)
