@@ -3,10 +3,11 @@ import datetime
 import pandas as pd
 import requests
 import os
+import sys
 from PIL import Image
+from io import StringIO
 from openbb_terminal.stocks.stocks_helper import load
-from openbb_terminal.common.technical_analysis.volatility_model import bbands
-from openbb_terminal.common.technical_analysis.volatility_view import display_bbands
+from openbb_terminal.common.technical_analysis.volatility_view import display_bbands, display_donchian
 
 st.write("""
 # Technical Analysis Web Application
@@ -27,22 +28,37 @@ def user_input_features():
 symbol, start, end = user_input_features()
 
 
-@st.cache  # 👈 Added this
-def build_bbands_img(data, symbol, file_name="sample.png"):
-    stream = os.popen('cd ~ && pwd')
-    root_dir = stream.read()
-    sample_dir = root_dir.strip()
-    # remove /home/codespace/OpenBBUserData/exports/bbands.png already
-    temp_image = os.path.join(sample_dir, "OpenBBUserData", "exports", file_name)
-    # if exists erase
-    if os.path.exists(temp_image):
-        os.remove(temp_image)
-    display_bbands(data, symbol, 15, 2, export=file_name)
-    # root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    temp_image = os.path.join(sample_dir, "OpenBBUserData", "exports", file_name)
-    # image = Image.open(temp_image)
-    return temp_image
+def remove_existing_file(func):
+    def wrapper(*args, **kwargs):
+        old_stdin = sys.stdin
+        sys.stdin = StringIO("y")
+        stream = os.popen('cd ~ && pwd')
+        root_dir = stream.read()
+        sample_dir = root_dir.strip()
+        # remove /home/codespace/OpenBBUserData/exports/bbands.png already
+        # get last arg as export
+        export = args[-1]
+        temp_image = os.path.join(sample_dir, "OpenBBUserData", "exports", export)
+        # if exists erase
+        if os.path.exists(temp_image):
+            os.remove(temp_image)
+        func(*args, **kwargs)
+        sys.stdin = old_stdin
+        if os.path.exists(temp_image):
+            return temp_image
+        return None
+    return wrapper
 
+@remove_existing_file
+@st.cache_data
+def build_bbands_img(data, symbol, window=15, n_std=2, export="bbands.png"):
+    return display_bbands(data, symbol, window, n_std, export=export)
+
+
+@remove_existing_file
+@st.cache_data
+def build_donchian_img(data, symbol, export="donchian.png"):
+    return display_donchian(data, symbol, export=export)
 company_name = symbol.upper()
 
 start = pd.to_datetime(start)
@@ -56,11 +72,18 @@ st.header(f"Adjusted Close Price\n {company_name}")
 st.line_chart(data["Close"])
 
 # get ta graph
-bbands_img = build_bbands_img(data, symbol, "bbands.png")
+bbands_img = build_bbands_img(data, symbol, 15, 2, "bbands.png")
 # plot ta using open bb sdk in streamlit
-st.header(f"Bollinger Bands\n {company_name}")
+st.header(f"Bollinger Bands")
 # 
 # if bbands.png exists, display it
 
 if bbands_img:
-    st.image(bbands_img, caption='Sunrise by the mountains')
+    st.image(bbands_img, caption='Bollinger bands chart')
+
+donchian_img = build_donchian_img(data, symbol, "donchian.png")
+# plot ta using open bb sdk in streamlit
+st.header(f"Donchian")
+
+if donchian_img:
+    st.image(donchian_img, caption='Donchian Openbb chart')
